@@ -2,6 +2,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { MicrophoneIcon, StopCircleIcon } from './icons/EditorIcons';
 import { RecordingState, SpeechRecognitionEvent, SpeechRecognitionErrorEvent } from '../types';
+import { STT_PROVIDER } from '../config';
+import { transcribeAudio } from '../services/openAiService';
 
 interface RecordFlowProps {
   onRecordingComplete: (audioBlob: Blob, transcript: string) => void;
@@ -99,42 +101,48 @@ export const RecordFlow: React.FC<RecordFlowProps> = ({ onRecordingComplete, dis
         }
       };
 
-      mediaRecorderRef.current.onstop = () => {
+      mediaRecorderRef.current.onstop = async () => {
         console.log('[RecordFlow] mediaRecorder.onstop triggered.');
-        // This is an important state. If it gets stuck here, this is the message the user sees.
-        setRecordingState(RecordingState.PROCESSING); 
+        setRecordingState(RecordingState.PROCESSING);
         setStatusMessage('Processing audio...');
 
         try {
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          
-          // Stop media stream tracks now that recorder is stopped
-          if (streamRef.current) { // streamRef might have been cleared by cleanupRisorse if stop was called twice
+
+          if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
-            streamRef.current = null; 
+            streamRef.current = null;
           }
-          
-          const transcriptToUse = finalTranscriptRef.current.trim();
+
+          let transcriptToUse = '';
+          if (STT_PROVIDER === 'openai') {
+            try {
+              transcriptToUse = await transcribeAudio(audioBlob);
+            } catch (e) {
+              console.error('[RecordFlow] OpenAI STT error', e);
+              setStatusMessage('Error transcribing audio.');
+            }
+          } else {
+            transcriptToUse = finalTranscriptRef.current.trim();
+          }
+
           console.log('[RecordFlow] Final transcript in onstop:', `"${transcriptToUse}"`);
-          
+
           if (typeof onRecordingComplete === 'function') {
             onRecordingComplete(audioBlob, transcriptToUse);
           } else {
             console.error("[RecordFlow] onRecordingComplete is not a function!");
           }
-          
-          // CRITICAL: Update state AFTER onRecordingComplete is CALLED (it's async, but RecordFlow updates its own state)
-          setRecordingState(RecordingState.IDLE); 
+
+          setRecordingState(RecordingState.IDLE);
           if (transcriptToUse) {
             setStatusMessage('Analysis complete. Record again?');
-            console.log('[RecordFlow] State set to IDLE, status: Analysis complete.');
           } else {
             setStatusMessage('Could not get transcript. Audio saved. Record again?');
-            console.log('[RecordFlow] State set to IDLE, status: Could not get transcript (transcript was empty).');
           }
         } catch (error) {
           console.error("[RecordFlow] Error in mediaRecorder.onstop's try block:", error);
-          setRecordingState(RecordingState.IDLE); // Ensure reset to IDLE on error
+          setRecordingState(RecordingState.IDLE);
           setStatusMessage('Error processing audio. Please try again.');
         }
       };
@@ -143,13 +151,13 @@ export const RecordFlow: React.FC<RecordFlowProps> = ({ onRecordingComplete, dis
       console.log('[RecordFlow] MediaRecorder started.');
 
       const SpeechRecognitionAPI = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognitionAPI) {
-        console.log('[RecordFlow] SpeechRecognitionAPI found.');
+      if (STT_PROVIDER === 'browser' && SpeechRecognitionAPI) {
+        console.log('[RecordFlow] Using browser SpeechRecognition.');
         recognitionRef.current = new SpeechRecognitionAPI();
-        recognitionRef.current.continuous = true; 
+        recognitionRef.current.continuous = true;
         recognitionRef.current.interimResults = true;
         recognitionRef.current.lang = 'en-US';
-        finalTranscriptRef.current = ''; 
+        finalTranscriptRef.current = '';
 
         recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
           let interimTranscript = '';
@@ -187,7 +195,7 @@ export const RecordFlow: React.FC<RecordFlowProps> = ({ onRecordingComplete, dis
 
         recognitionRef.current.start();
         console.log('[RecordFlow] Speech recognition started.');
-      } else {
+      } else if (STT_PROVIDER === 'browser') {
         console.warn('[RecordFlow] Speech recognition not supported by this browser.');
         setStatusMessage('Speech recognition not supported.');
         // No speech rec, so transcript will be empty. mediaRecorder.onstop will handle this.
@@ -209,9 +217,9 @@ export const RecordFlow: React.FC<RecordFlowProps> = ({ onRecordingComplete, dis
 
   const stopRecording = useCallback(() => {
     console.log('[RecordFlow] stopRecording called. Current state:', recordingState);
-    if (recognitionRef.current) {
+    if (STT_PROVIDER === 'browser' && recognitionRef.current) {
       console.log('[RecordFlow] Stopping speech recognition.');
-      recognitionRef.current.stop(); // This should trigger onresult with isFinal=true if there's pending audio
+      recognitionRef.current.stop();
     }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       console.log('[RecordFlow] Stopping media recorder.');

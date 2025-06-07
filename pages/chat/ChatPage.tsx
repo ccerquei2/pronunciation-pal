@@ -3,6 +3,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { UserProfile, ChatMessage } from '../../types';
 import { ChatMessageSender } from '../../types'; // Changed from import type
 import { mockChatResponse } from '../../services/mockAiTutorService';
+import { chatCompletion, AVAILABLE_MODELS } from '../../services/openAiService';
 import { ChatInputArea } from './ChatInputArea';
 import { ChatBubble } from './ChatBubble';
 import { PronunciationScoreIndicator } from './PronunciationScoreIndicator';
@@ -64,6 +65,21 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
 
     try {
       const { aiTextOutput, pronunciationScore, grammarScore, grammarFeedback } = await mockChatResponse(userTranscript, userProfile.phonemeProgress);
+
+      const chatHistory = messages.slice(-6).map(m => ({
+        role: m.sender === ChatMessageSender.USER ? 'user' : 'assistant',
+        content: m.text
+      }));
+      chatHistory.push({ role: 'user', content: userTranscript });
+      let aiReply = aiTextOutput;
+      try {
+        aiReply = await chatCompletion([
+          { role: 'system', content: 'You are a friendly English tutor.' },
+          ...chatHistory
+        ]);
+      } catch (e) {
+        console.error('[ChatPage] OpenAI chat error', e);
+      }
       
       setMessages(prev => prev.map(msg => 
         msg.id === newUserMessage.id ? { 
@@ -81,13 +97,13 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
       const aiMessage: ChatMessage = {
         id: `ai-${Date.now()}`,
         sender: ChatMessageSender.AI,
-        text: aiTextOutput,
+        text: aiReply,
         timestamp: Date.now(),
       };
       setMessages(prev => [...prev, aiMessage]);
-      
+
       if (!isAiSpeakingGlobal) {
-        playAiFeedbackAudio(aiTextOutput);
+        playAiFeedbackAudio(aiReply);
       }
 
     } catch (err) {

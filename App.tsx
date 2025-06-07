@@ -5,6 +5,8 @@ import { ChatPage } from './pages/chat/ChatPage'; // New Chat Page
 import type { Phoneme, PhonemeAnalysis, PracticePhrase, DailyChallenge, UserProfile, AppView } from './types';
 import { mockAnalyzePronunciation, mockGeneratePersonalizedLesson, mockGetDailyChallenge, mockGetUserProfile } from './services/mockAiTutorService';
 import { AppView as AppViewEnum } from './types'; // Ensure enum is imported for use
+import { TTS_PROVIDER } from './config';
+import { synthesizeSpeech } from './services/openAiService';
 
 const App: React.FC = () => {
   const [currentAppView, setCurrentAppView] = useState<AppView>(AppViewEnum.PRACTICE);
@@ -107,33 +109,52 @@ const App: React.FC = () => {
     }
   }, [userProfile]);
   
-  const playAiFeedbackAudio = useCallback((text: string, onEndCallback?: () => void) => {
-    if ('speechSynthesis' in window) {
+  const playAiFeedbackAudio = useCallback(async (text: string, onEndCallback?: () => void) => {
+    try {
       setIsAiSpeaking(true);
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US'; 
-      const voices = window.speechSynthesis.getVoices();
-      const femaleVoice = voices.find(voice => voice.name.includes('Female') && voice.lang === 'en-US' && voice.localService);
-      if (femaleVoice) {
-        utterance.voice = femaleVoice;
+      if (TTS_PROVIDER === 'openai') {
+        const audioBlob = await synthesizeSpeech(text);
+        const url = URL.createObjectURL(audioBlob);
+        const audio = new Audio(url);
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          setIsAiSpeaking(false);
+          if (onEndCallback) onEndCallback();
+        };
+        audio.onerror = (e) => {
+          console.error('[App] OpenAI TTS playback error', e);
+          setIsAiSpeaking(false);
+          if (onEndCallback) onEndCallback();
+        };
+        audio.play();
+      } else if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US';
+        const voices = window.speechSynthesis.getVoices();
+        const femaleVoice = voices.find(v => v.name.includes('Female') && v.lang === 'en-US' && v.localService);
+        if (femaleVoice) {
+          utterance.voice = femaleVoice;
+        } else {
+          const englishVoice = voices.find(v => v.lang === 'en-US');
+          if (englishVoice) utterance.voice = englishVoice;
+        }
+        utterance.onend = () => {
+          setIsAiSpeaking(false);
+          if (onEndCallback) onEndCallback();
+        };
+        utterance.onerror = (event) => {
+          console.error('[App] SpeechSynthesisUtterance.onerror:', event);
+          setIsAiSpeaking(false);
+          if (onEndCallback) onEndCallback();
+        };
+        window.speechSynthesis.speak(utterance);
       } else {
-        const englishVoice = voices.find(voice => voice.lang === 'en-US');
-        if (englishVoice) utterance.voice = englishVoice;
-      }
-      utterance.onend = () => {
+        setError('Text-to-speech is not supported in your browser.');
         setIsAiSpeaking(false);
         if (onEndCallback) onEndCallback();
-      };
-      utterance.onerror = (event) => {
-        console.error('[App] SpeechSynthesisUtterance.onerror:', event);
-        setError('Could not play AI feedback due to speech synthesis error.');
-        setIsAiSpeaking(false);
-        if (onEndCallback) onEndCallback(); // Ensure callback is called on error too
-      };
-      window.speechSynthesis.speak(utterance);
-    } else {
-      setError('Text-to-speech is not supported in your browser.');
-      console.warn('[App] Text-to-speech not supported.');
+      }
+    } catch (err) {
+      console.error('[App] playAiFeedbackAudio error', err);
       setIsAiSpeaking(false);
       if (onEndCallback) onEndCallback();
     }
