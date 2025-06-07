@@ -5,6 +5,7 @@ if (!OPENAI_KEY) {
 }
 
 const CHAT_MODEL = import.meta.env.VITE_OPENAI_MODEL || 'gpt-3.5-turbo';
+export const DEFAULT_CHAT_MODEL = CHAT_MODEL;
 
 export async function chatCompletion(messages: {role: 'system' | 'user' | 'assistant'; content: string;}[], model: string = CHAT_MODEL): Promise<string> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -64,4 +65,4 @@ export async function synthesizeSpeech(text: string, voice: string = 'alloy'): P
   return new Blob([arrayBuffer], { type: 'audio/mpeg' });
 }
 
-export const AVAILABLE_MODELS = ['gpt-3.5-turbo', 'gpt-4o'];
+export const AVAILABLE_MODELS = ['gpt-3.5-turbo', 'gpt-3.5-turbo-0125', 'gpt-4o'];
