@@ -3,6 +3,8 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { MicrophoneIcon, StopCircleIcon, PaperAirplaneIcon } from '../../components/icons/EditorIcons';
 import { RecordingState, SpeechRecognitionEvent, SpeechRecognitionErrorEvent } from '../../types';
 import { AI_TUTOR_NAME } from '../../constants'; // Added import
+import { STT_PROVIDER } from '../../config';
+import { transcribeAudio } from '../../services/openAiService';
 
 interface ChatInputAreaProps {
   onSendMessage: (transcript: string, audioBlob?: Blob) => void;
@@ -88,45 +90,49 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = ({ onSendMessage, isL
         if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
-      mediaRecorderRef.current.onstop = () => {
+      mediaRecorderRef.current.onstop = async () => {
         console.log('[ChatInputArea] mediaRecorder.onstop triggered.');
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        
-        const sttFinalRefValue = finalTranscriptFromSpeechRecRef.current.trim();
-        // Use currentTranscript state, which might have been updated by STT error/end handlers
-        const stateTranscriptValue = currentTranscript.trim(); 
-        console.log(`[ChatInputArea] In onstop - Raw values: sttFinalRef: "${sttFinalRefValue}", stateTranscript: "${stateTranscriptValue}"`);
 
-        // Prioritize final STT ref, then state (which might contain diagnostic messages)
-        const transcriptToSend = sttFinalRefValue || stateTranscriptValue;
-        console.log(`[ChatInputArea] In onstop - Transcript to send: "${transcriptToSend}", Blob size: ${audioBlob.size}`);
-        
-        if (transcriptToSend || audioBlob.size > 0) {
-           onSendMessage(transcriptToSend, audioBlob);
+        let transcriptToSend = '';
+        if (STT_PROVIDER === 'openai') {
+          try {
+            transcriptToSend = await transcribeAudio(audioBlob);
+          } catch (e) {
+            console.error('[ChatInputArea] OpenAI STT error', e);
+            transcriptToSend = currentTranscript.trim();
+          }
         } else {
-           console.log('[ChatInputArea] In onstop - Neither transcript nor audio blob has content. Not sending message.');
-           // If sttErrorOccurredRef wasn't set (meaning no specific error or nomatch event handled it),
-           // but we still have no transcript, provide a generic message.
-           if (!sttErrorOccurredRef.current) {
-               onSendMessage("[No transcript captured]", audioBlob.size > 0 ? audioBlob : undefined);
-           }
+          const sttFinalRefValue = finalTranscriptFromSpeechRecRef.current.trim();
+          const stateTranscriptValue = currentTranscript.trim();
+          transcriptToSend = sttFinalRefValue || stateTranscriptValue;
         }
-        
-        setCurrentTranscript(''); 
+
+        console.log(`[ChatInputArea] In onstop - Transcript to send: "${transcriptToSend}", Blob size: ${audioBlob.size}`);
+
+        if (transcriptToSend || audioBlob.size > 0) {
+          onSendMessage(transcriptToSend, audioBlob);
+        } else {
+          if (!sttErrorOccurredRef.current) {
+            onSendMessage("[No transcript captured]", audioBlob.size > 0 ? audioBlob : undefined);
+          }
+        }
+
+        setCurrentTranscript('');
         setRecordingState(RecordingState.IDLE);
-        finalTranscriptFromSpeechRecRef.current = ''; // Ensure this is also cleared
-        sttErrorOccurredRef.current = false; // Reset flag
+        finalTranscriptFromSpeechRecRef.current = '';
+        sttErrorOccurredRef.current = false;
       };
 
       mediaRecorderRef.current.start();
 
       const SpeechRecognitionAPI = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognitionAPI) {
+      if (STT_PROVIDER === 'browser' && SpeechRecognitionAPI) {
         recognitionRef.current = new SpeechRecognitionAPI();
         recognitionRef.current.continuous = true;
         recognitionRef.current.interimResults = true;
         recognitionRef.current.lang = 'en-US';
-        finalTranscriptFromSpeechRecRef.current = ''; 
+        finalTranscriptFromSpeechRecRef.current = '';
         sttErrorOccurredRef.current = false;
 
         recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
@@ -175,7 +181,7 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = ({ onSendMessage, isL
         
         console.log('[ChatInputArea] Starting SpeechRecognition...');
         recognitionRef.current.start();
-      } else {
+      } else if (STT_PROVIDER === 'browser') {
         console.warn('[ChatInputArea] Speech recognition not supported.');
         setCurrentTranscript("[STT not supported by browser]");
         sttErrorOccurredRef.current = true;
@@ -195,9 +201,9 @@ export const ChatInputArea: React.FC<ChatInputAreaProps> = ({ onSendMessage, isL
 
   const stopRecordingAndProcess = useCallback(() => {
     console.log('[ChatInputArea] stopRecordingAndProcess called.');
-    if (recognitionRef.current) {
+    if (STT_PROVIDER === 'browser' && recognitionRef.current) {
       console.log('[ChatInputArea] Stopping STT explicitly.');
-      recognitionRef.current.stop(); 
+      recognitionRef.current.stop();
     }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       console.log('[ChatInputArea] Stopping MediaRecorder.');
