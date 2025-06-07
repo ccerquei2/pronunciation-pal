@@ -4,6 +4,7 @@ if (!OPENAI_KEY) {
   console.warn('[openAiService] OPENAI API key is not set.');
 }
 
+
 const CHAT_MODEL = import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
 
 export async function chatCompletion(messages: {role: 'system' | 'user' | 'assistant'; content: string;}[], model: string = CHAT_MODEL): Promise<string> {
@@ -64,4 +65,6 @@ export async function synthesizeSpeech(text: string, voice: string = 'alloy'): P
   return new Blob([arrayBuffer], { type: 'audio/mpeg' });
 }
 
+
 export const AVAILABLE_MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'];
+

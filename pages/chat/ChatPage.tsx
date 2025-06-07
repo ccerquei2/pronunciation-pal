@@ -3,7 +3,9 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { UserProfile, ChatMessage } from '../../types';
 import { ChatMessageSender } from '../../types'; // Changed from import type
 import { mockChatResponse } from '../../services/mockAiTutorService';
+
 import { chatCompletion, AVAILABLE_MODELS } from '../../services/openAiService';
+
 import { ChatInputArea } from './ChatInputArea';
 import { ChatBubble } from './ChatBubble';
 import { PronunciationScoreIndicator } from './PronunciationScoreIndicator';
@@ -23,6 +25,8 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
   const [isLoadingAiResponse, setIsLoadingAiResponse] = useState<boolean>(false);
   const [currentPronunciationScore, setCurrentPronunciationScore] = useState<number | null>(null);
   const [currentGrammarScore, setCurrentGrammarScore] = useState<number | null>(null); // New
+
+  const [selectedModel, setSelectedModel] = useState<string>(DEFAULT_CHAT_MODEL);
   
   // New Toggles
   const [isAiPronunciationOfUserTextEnabled, setIsAiPronunciationOfUserTextEnabled] = useState<boolean>(false);
@@ -76,7 +80,9 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
         aiReply = await chatCompletion([
           { role: 'system', content: 'You are a friendly English tutor.' },
           ...chatHistory
+
         ]);
+
       } catch (e) {
         console.error('[ChatPage] OpenAI chat error', e);
       }
@@ -148,6 +154,15 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
             <GrammarIcon className="w-4 h-4" />
             <span>Grammar Check</span>
           </button>
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="bg-slate-700 text-sky-300 border border-slate-600 rounded-md text-xs px-2 py-1 focus:outline-none focus:ring-2 focus:ring-sky-500"
+          >
+            {AVAILABLE_MODELS.map(m => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
         </div>
       </header>
 
