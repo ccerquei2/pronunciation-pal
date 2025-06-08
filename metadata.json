@@ -1,0 +1,8 @@
+{
+  "name": "Pronunciation Pal",
+  "description": "An AI-powered app to help English learners, especially Brazilian Portuguese speakers, improve their pronunciation with personalized feedback and lessons.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "prompt": ""
+}
