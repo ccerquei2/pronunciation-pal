@@ -1,10 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App';
-import { AuthProvider } from './AuthContext';
-import { ProtectedRoute } from './ProtectedRoute';
-import { LoginPage } from './pages/LoginPage';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -14,16 +11,10 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard/*" element={<App />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/*" element={<App />} />
+      </Routes>
+    </BrowserRouter>
   </React.StrictMode>
 );
