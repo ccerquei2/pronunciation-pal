@@ -21,10 +21,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        setSession(data.session);
-        setUser(data.session.user);
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('code') || params.has('error')) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+        if (data.session) {
+          setSession(data.session);
+          setUser(data.session.user);
+        }
+        if (!error) {
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      } else {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          setSession(data.session);
+          setUser(data.session.user);
+        }
       }
       setLoading(false);
     };
