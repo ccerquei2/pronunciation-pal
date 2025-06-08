@@ -54,7 +54,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signInWithGoogle = async () => {
-    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+    const redirectTo = `${window.location.origin}/dashboard`;
+    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
   };
 
   const signInWithEmail = async (email: string, password: string) => {
