@@ -3,12 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 
 export const LoginPage: React.FC = () => {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
+  const { user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  if (!loading && user) {
+    navigate('/dashboard', { replace: true });
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
