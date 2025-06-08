@@ -1,5 +1,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from './AuthContext';
 import { BottomNavigationBar } from './components/BottomNavigationBar';
 import { ChatPage } from './pages/chat/ChatPage';
 import { PracticePage } from './pages/practice/PracticePage';
@@ -20,6 +22,13 @@ const App: React.FC = () => {
   const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
+  };
 
 
   useEffect(() => {
@@ -154,7 +163,8 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-slate-900 to-slate-800 text-slate-100">
+    <div className="relative flex flex-col h-full bg-gradient-to-br from-slate-900 to-slate-800 text-slate-100">
+      <button onClick={handleLogout} className="absolute top-2 right-2 text-sm text-slate-300">Logout</button>
       <div className="flex-1 overflow-y-auto">
         {currentAppView === AppViewEnum.CHAT && userProfile && (
           <ChatPage

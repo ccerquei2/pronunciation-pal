@@ -1,7 +1,7 @@
 
 import React from 'react';
 import type { PhonemeAnalysis } from '../types';
-import { CheckCircleIcon, XCircleIcon, SpeakerWaveIcon, InformationCircleIcon } from './icons/FeedbackIcons'; // Assuming you have these
+import { CheckCircleIcon, XCircleIcon, SpeakerWaveIcon } from './icons/FeedbackIcons';
 
 interface PronunciationFeedbackProps {
   analysis: PhonemeAnalysis;

@@ -7,7 +7,7 @@ import { ChatBubble } from './ChatBubble';
 import { PronunciationScoreIndicator } from './PronunciationScoreIndicator';
 import { GrammarScoreIndicator } from './GrammarScoreIndicator';
 import { AI_TUTOR_NAME } from '../../constants';
-import { SpeakerWaveIcon, DocumentTextIcon as GrammarIcon, XCircleIcon } from '../../components/icons/EditorIcons'; // Using SpeakerWave for AI pronounce, GrammarIcon for grammar check
+import { SpeakerWaveIcon, DocumentTextIcon as GrammarIcon } from '../../components/icons/EditorIcons'; // Using SpeakerWave for AI pronounce, GrammarIcon for grammar check
 
 interface ChatPageProps {
   userProfile: UserProfile;
