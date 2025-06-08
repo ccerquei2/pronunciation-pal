@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { UserProfile, ChatMessage } from '../../types';
 import { ChatMessageSender } from '../../types';
-import { mockChatResponse } from '../../services/mockAiTutorService';
+import { chatWithAI } from '../../services/openaiService';
 import { ChatInputArea } from './ChatInputArea';
 import { ChatBubble } from './ChatBubble';
 import { PronunciationScoreIndicator } from './PronunciationScoreIndicator';
@@ -63,7 +63,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
     setCurrentGrammarScore(null);
 
     try {
-      const { aiTextOutput, pronunciationScore, grammarScore, grammarFeedback } = await mockChatResponse(userTranscript, userProfile.phonemeProgress);
+      const { aiTextOutput, pronunciationScore, grammarScore, grammarFeedback } = await chatWithAI(userTranscript, userProfile.phonemeProgress);
       
       setMessages(prev => prev.map(msg => 
         msg.id === newUserMessage.id ? { 

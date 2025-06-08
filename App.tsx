@@ -5,6 +5,7 @@ import { ChatPage } from './pages/chat/ChatPage';
 import { PracticePage } from './pages/practice/PracticePage';
 import type { PhonemeAnalysis, PracticePhrase, DailyChallenge, UserProfile, AppView } from './types';
 import { mockAnalyzePronunciation, mockGeneratePersonalizedLesson, mockGetDailyChallenge, mockGetUserProfile } from './services/mockAiTutorService';
+import { synthesizeSpeech } from './services/openaiService';
 import { AppView as AppViewEnum } from './types';
 
 const App: React.FC = () => {
@@ -20,8 +21,6 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
 
-  const [speechSynthesisSupported, setSpeechSynthesisSupported] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,24 +40,6 @@ const App: React.FC = () => {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    if ('speechSynthesis' in window) {
-      setSpeechSynthesisSupported(true);
-      const updateVoices = () => {
-        const availableVoices = window.speechSynthesis.getVoices();
-        setVoices(availableVoices);
-        console.log('[App] Speech synthesis voices updated:', availableVoices.length);
-      };
-      updateVoices(); // Initial call
-      window.speechSynthesis.addEventListener('voiceschanged', updateVoices);
-      return () => {
-        window.speechSynthesis.removeEventListener('voiceschanged', updateVoices);
-      };
-    } else {
-      setSpeechSynthesisSupported(false);
-      console.warn('[App] Text-to-speech (speechSynthesis) not supported.');
-    }
-  }, []);
 
   const handleRecordingComplete = useCallback(async (audioBlob: Blob, transcript: string) => {
     console.log('[App] handleRecordingComplete called. Transcript:', `"${transcript}"`, 'Audio Blob:', audioBlob);
@@ -131,61 +112,32 @@ const App: React.FC = () => {
   }, [userProfile]);
   
   const playAiFeedbackAudio = useCallback((text: string, onEndCallback?: () => void) => {
-    if (!speechSynthesisSupported) {
-      setError('Text-to-speech is not supported in your browser.');
-      setIsAiSpeaking(false);
-      if (onEndCallback) onEndCallback();
-      return;
-    }
-
-    // Ensure voices are available, especially on mobile where they load async
-    const currentSystemVoices = window.speechSynthesis.getVoices();
-    const allAvailableVoices = currentSystemVoices.length > 0 ? currentSystemVoices : voices;
-
-    if (allAvailableVoices.length === 0) {
-        console.warn('[App] No voices available for speech synthesis yet. Attempting with browser default.');
-    }
-
     setIsAiSpeaking(true);
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    
-    // Voice selection logic:
-    let selectedVoice = allAvailableVoices.find(voice => voice.lang === 'en-US' && voice.localService && voice.name.toLowerCase().includes('female'));
-    if (!selectedVoice) {
-      selectedVoice = allAvailableVoices.find(voice => voice.lang === 'en-US' && voice.localService);
-    }
-    if (!selectedVoice) {
-      selectedVoice = allAvailableVoices.find(voice => voice.lang === 'en-US');
-    }
-    if (!selectedVoice) {
-      selectedVoice = allAvailableVoices.find(voice => voice.lang.startsWith('en-'));
-    }
-
-    if (selectedVoice) {
-      utterance.voice = selectedVoice;
-      console.log('[App] Using voice for TTS:', selectedVoice.name, selectedVoice.lang);
-    } else {
-      console.warn('[App] No specific English voice found. Using browser default for lang en-US.');
-    }
-    
-    utterance.onend = () => {
-      setIsAiSpeaking(false);
-      if (onEndCallback) onEndCallback();
-    };
-    utterance.onerror = (event) => {
-      console.error('[App] SpeechSynthesisUtterance.onerror:', event);
-      // The event object itself (SpeechSynthesisErrorEvent) contains an 'error' property with details.
-      const errorDetails = (event as any).error || 'unknown error';
-      setError(`Could not play AI feedback due to speech synthesis error: ${errorDetails}.`);
-      setIsAiSpeaking(false);
-      if (onEndCallback) onEndCallback();
-    };
-
-    window.speechSynthesis.cancel(); // Cancel any ongoing or queued speech
-    window.speechSynthesis.speak(utterance);
-
-  }, [speechSynthesisSupported, voices, setIsAiSpeaking, setError]);
+    (async () => {
+      try {
+        const audioBlob = await synthesizeSpeech(text);
+        const url = URL.createObjectURL(audioBlob);
+        const audio = new Audio(url);
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          setIsAiSpeaking(false);
+          if (onEndCallback) onEndCallback();
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(url);
+          setIsAiSpeaking(false);
+          setError('Could not play AI feedback audio.');
+          if (onEndCallback) onEndCallback();
+        };
+        await audio.play();
+      } catch (err) {
+        console.error('[App] Error playing AI feedback:', err);
+        setError('Failed to generate AI speech.');
+        setIsAiSpeaking(false);
+        if (onEndCallback) onEndCallback();
+      }
+    })();
+  }, []);
 
 
   const handleChangeView = (view: AppView) => {

@@ -175,7 +175,7 @@ export const PracticePage: React.FC<PracticePageProps> = ({
         )}
       </div>
        <div className="text-center text-xs text-slate-500 py-4 border-t border-slate-700">
-          <p>API key for AI services should be securely managed. App uses browser STT/TTS.</p>
+          <p>Audio features rely on OpenAI APIs. Ensure <code>OPENAI_API_KEY</code> is configured.</p>
        </div>
     </div>
   );
