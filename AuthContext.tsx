@@ -32,9 +32,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const init = async () => {
       await supabase.auth
-        .getSessionFromUrl()
-        .catch(() => {});
-      await supabase.auth
         .exchangeCodeForSession(window.location.href)
         .catch(() => {});
       const { data } = await supabase.auth.getSession();
