@@ -1,5 +1,5 @@
 
-import type { Phoneme, PhonemeAnalysis, PracticePhrase, DailyChallenge, UserProfile, AnalyzedPhoneme, MockChatResponse, ChatMessageSender, ChatMessage } from '../types';
+import type { Phoneme, PhonemeAnalysis, PracticePhrase, DailyChallenge, UserProfile, AnalyzedPhoneme, MockChatResponse } from '../types';
 import { COMMON_PHONEMES_FOR_PT_BR_SPEAKERS, DEFAULT_USER_PROFILE_ID } from '../constants';
 
 // Simulate API call latency

@@ -51,7 +51,7 @@ export async function synthesizeSpeech(text: string): Promise<Blob> {
   return new Blob([buffer], { type: 'audio/mpeg' });
 }
 
-export async function chatWithAI(userText: string, phonemeProgress: Phoneme[]): Promise<MockChatResponse> {
+export async function chatWithAI(userText: string, _phonemeProgress: Phoneme[]): Promise<MockChatResponse> {
   const messages = [
     { role: 'system', content: 'You are a helpful pronunciation coach.' },
     { role: 'user', content: userText },
