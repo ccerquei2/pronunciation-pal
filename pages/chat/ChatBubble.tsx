@@ -29,15 +29,28 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
       playAiFeedbackAudio(message.text);
     }
   };
+
+  const handlePlayCorrectTextAsAi = () => {
+    if (playAiFeedbackAudio && message.grammarSuggestion && message.grammarSuggestion.trim() !== '' && !isAiSpeakingGlobal) {
+      playAiFeedbackAudio(message.grammarSuggestion);
+    }
+  };
   
   const isDiagnosticMessage = typeof message.text === 'string' && message.text.startsWith('[') && message.text.endsWith(']');
 
-  const canAiReadUserText = isUser && 
-                            isAiPronunciationOfUserTextEnabled &&
-                            typeof message.text === 'string' &&
-                            message.text.trim() !== '' &&
-                            !isDiagnosticMessage &&
-                            playAiFeedbackAudio;
+  const canAiReadStudentText = isUser &&
+                               isAiPronunciationOfUserTextEnabled &&
+                               typeof message.text === 'string' &&
+                               message.text.trim() !== '' &&
+                               !isDiagnosticMessage &&
+                               playAiFeedbackAudio;
+
+  const canAiReadTutorText = isUser &&
+                             isAiPronunciationOfUserTextEnabled &&
+                             !!message.grammarSuggestion &&
+                             message.grammarSuggestion.trim() !== '' &&
+                             !isDiagnosticMessage &&
+                             playAiFeedbackAudio;
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} group`}>
@@ -57,15 +70,29 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
             </div>
           )}
 
-          {canAiReadUserText && (
-            <button
-              onClick={handlePlayUserTextAsAi}
-              disabled={isAiSpeakingGlobal}
-              className="mt-1.5 p-1 rounded-md text-sky-100 hover:bg-sky-500/60 disabled:opacity-50 transition-colors flex items-center text-xs"
-              title="Hear AI pronounce your text"
-            >
-              <SpeakerWaveIcon className="w-3 h-3 mr-1" /> AI Reads
-            </button>
+          {(canAiReadStudentText || canAiReadTutorText) && (
+            <div className="mt-1.5 flex gap-1">
+              {canAiReadStudentText && (
+                <button
+                  onClick={handlePlayUserTextAsAi}
+                  disabled={isAiSpeakingGlobal}
+                  className="p-1 rounded-md text-sky-100 hover:bg-sky-500/60 disabled:opacity-50 transition-colors flex items-center text-xs"
+                  title="Hear AI pronounce your text"
+                >
+                  <SpeakerWaveIcon className="w-3 h-3 mr-1" /> AI Reads Student
+                </button>
+              )}
+              {canAiReadTutorText && (
+                <button
+                  onClick={handlePlayCorrectTextAsAi}
+                  disabled={isAiSpeakingGlobal}
+                  className="p-1 rounded-md text-sky-100 hover:bg-sky-500/60 disabled:opacity-50 transition-colors flex items-center text-xs"
+                  title="Hear AI pronounce the correction"
+                >
+                  <SpeakerWaveIcon className="w-3 h-3 mr-1" /> AI Reads Tutor
+                </button>
+              )}
+            </div>
           )}
           
           <div className={`text-[0.65rem] mt-1.5 ${isUser ? 'text-sky-200 text-right' : 'text-slate-400 text-left'}`}>
@@ -73,7 +100,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
           </div>
 
           {(isUser && (typeof message.userPronunciationScore === 'number' || (isGrammarCheckEnabled && typeof message.userGrammarScore === 'number'))) && (
-             <div className={`mt-1.5 flex ${isUser ? 'justify-end' : 'justify-start'} items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300`}>
+             <div className={`mt-1.5 flex ${isUser ? 'justify-end' : 'justify-start'} items-center gap-1.5`}>
                 {typeof message.userPronunciationScore === 'number' && (
                     <PronunciationScoreIndicator score={message.userPronunciationScore} compact={true} bubble={true} />
                 )}
@@ -81,7 +108,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
                     <GrammarScoreIndicator score={message.userGrammarScore} compact={true} bubble={true}/>
                 )}
              </div>
-           )}
+          )}
            {isUser && isGrammarCheckEnabled && message.grammarFeedback && (
             <p className="text-xs text-sky-100/90 italic mt-1.5 bg-black/20 p-1.5 rounded">
               <span className="font-semibold">Tip:</span> {message.grammarFeedback}

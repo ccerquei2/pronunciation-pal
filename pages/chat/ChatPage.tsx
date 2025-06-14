@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { UserProfile, ChatMessage } from '../../types';
 import { ChatMessageSender } from '../../types';
 import { chatWithAI, getGrammarSuggestion } from '../../services/openaiService';
+import { calculateGrammarScore } from '../../utils/grammarScore';
 import { ChatInputArea } from './ChatInputArea';
 import { ChatBubble } from './ChatBubble';
 import { PronunciationScoreIndicator } from './PronunciationScoreIndicator';
@@ -68,7 +69,11 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
     setMessages(prev => [...prev, newUserMessage]);
 
     getGrammarSuggestion(userTranscript).then(suggestion => {
-      setMessages(prev => prev.map(m => m.id === newUserMessage.id ? { ...m, grammarSuggestion: suggestion } : m));
+      const score = calculateGrammarScore(userTranscript, suggestion);
+      setMessages(prev => prev.map(m => m.id === newUserMessage.id ? { ...m, grammarSuggestion: suggestion, userGrammarScore: score } : m));
+      if (isGrammarCheckEnabled) {
+        setCurrentGrammarScore(score);
+      }
     }).catch(err => console.error('[ChatPage] Grammar suggestion error:', err));
     setIsLoadingAiResponse(true);
     setCurrentPronunciationScore(null);
@@ -76,32 +81,42 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
 
     try {
       const tokenMap = [16, 32, 64, 128, 256, 512, 1024, 2048];
-      const maxTokens = tokenMap[Math.min(tokenMap.length, Math.max(1, answerLength)) - 1];
-      const { aiTextOutput, pronunciationScore, grammarScore, grammarFeedback } = await chatWithAI(userTranscript, userProfile.phonemeProgress, maxTokens);
+      const baseTokens = tokenMap[Math.min(tokenMap.length, Math.max(1, answerLength)) - 1];
+      const { aiTextOutput, pronunciationScore, grammarFeedback } = await chatWithAI(userTranscript, userProfile.phonemeProgress, baseTokens + 20);
+
+      const trimResponse = (text: string, limit: number): string => {
+        const words = text.split(/\s+/);
+        if (words.length <= limit) return text;
+        let cut = limit;
+        while (cut < words.length && cut < limit + 20) {
+          if (/[.!?]$/.test(words[cut - 1])) break;
+          cut++;
+        }
+        return words.slice(0, cut).join(' ');
+      };
+
+      const finalAiText = trimResponse(aiTextOutput, baseTokens);
       
-      setMessages(prev => prev.map(msg => 
-        msg.id === newUserMessage.id ? { 
-          ...msg, 
+      setMessages(prev => prev.map(msg =>
+        msg.id === newUserMessage.id ? {
+          ...msg,
           userPronunciationScore: pronunciationScore,
-          userGrammarScore: isGrammarCheckEnabled ? grammarScore : undefined,
           grammarFeedback: isGrammarCheckEnabled ? grammarFeedback : undefined,
         } : msg
       ));
       setCurrentPronunciationScore(pronunciationScore);
-      if (isGrammarCheckEnabled) {
-        setCurrentGrammarScore(grammarScore);
-      }
+      // currentGrammarScore will be set after grammar suggestion returns
 
       const aiMessage: ChatMessage = {
         id: `ai-${Date.now()}`,
         sender: ChatMessageSender.AI,
-        text: aiTextOutput,
+        text: finalAiText,
         timestamp: Date.now(),
       };
       setMessages(prev => [...prev, aiMessage]);
       
       if (!isAiSpeakingGlobal) {
-        playAiFeedbackAudio(aiTextOutput);
+        playAiFeedbackAudio(finalAiText);
       }
 
     } catch (err) {
