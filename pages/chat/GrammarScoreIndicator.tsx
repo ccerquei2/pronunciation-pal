@@ -10,15 +10,15 @@ export const GrammarScoreIndicator: React.FC<GrammarScoreIndicatorProps> = ({ sc
   if (score === null) return null;
 
   const getScoreColor = () => {
-    if (score >= 75) return 'bg-teal-500 text-teal-50';
-    if (score >= 50) return 'bg-amber-500 text-amber-50';
-    return 'bg-rose-500 text-rose-50';
+    if (score >= 75) return 'bg-green-500 text-green-50';
+    if (score >= 50) return 'bg-yellow-500 text-yellow-50';
+    return 'bg-red-500 text-red-50';
   };
-  
+
   const getScoreRingColor = () => {
-    if (score >= 75) return 'ring-teal-400';
-    if (score >= 50) return 'ring-amber-400';
-    return 'ring-rose-400';
+    if (score >= 75) return 'ring-green-400';
+    if (score >= 50) return 'ring-yellow-400';
+    return 'ring-red-400';
   }
 
   if (bubble) {

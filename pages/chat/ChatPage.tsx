@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { UserProfile, ChatMessage } from '../../types';
 import { ChatMessageSender } from '../../types';
-import { chatWithAI } from '../../services/openaiService';
+import { chatWithAI, getGrammarSuggestion } from '../../services/openaiService';
+import { calculateGrammarScore } from '../../utils/grammarScore';
 import { ChatInputArea } from './ChatInputArea';
 import { ChatBubble } from './ChatBubble';
 import { PronunciationScoreIndicator } from './PronunciationScoreIndicator';
@@ -24,6 +25,14 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
   
   const [isAiPronunciationOfUserTextEnabled, setIsAiPronunciationOfUserTextEnabled] = useState<boolean>(false);
   const [isGrammarCheckEnabled, setIsGrammarCheckEnabled] = useState<boolean>(false);
+  const [answerLength, setAnswerLength] = useState<number>(() => {
+    const stored = localStorage.getItem('tutorAnswerLength');
+    return stored ? Number(stored) : 4;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('tutorAnswerLength', answerLength.toString());
+  }, [answerLength]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -48,7 +57,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
 
   const handleSendMessage = useCallback(async (userTranscript: string, audioBlob?: Blob) => {
     if (!userTranscript.trim() && !audioBlob) return;
-    onError(null); 
+    onError(null);
 
     const newUserMessage: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -58,36 +67,56 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
       audioBlob: audioBlob,
     };
     setMessages(prev => [...prev, newUserMessage]);
+
+    getGrammarSuggestion(userTranscript).then(suggestion => {
+      const score = calculateGrammarScore(userTranscript, suggestion);
+      setMessages(prev => prev.map(m => m.id === newUserMessage.id ? { ...m, grammarSuggestion: suggestion, userGrammarScore: score } : m));
+      if (isGrammarCheckEnabled) {
+        setCurrentGrammarScore(score);
+      }
+    }).catch(err => console.error('[ChatPage] Grammar suggestion error:', err));
     setIsLoadingAiResponse(true);
-    setCurrentPronunciationScore(null); 
+    setCurrentPronunciationScore(null);
     setCurrentGrammarScore(null);
 
     try {
-      const { aiTextOutput, pronunciationScore, grammarScore, grammarFeedback } = await chatWithAI(userTranscript, userProfile.phonemeProgress);
+      const tokenMap = [16, 32, 64, 128, 256, 512, 1024, 2048];
+      const baseTokens = tokenMap[Math.min(tokenMap.length, Math.max(1, answerLength)) - 1];
+      const { aiTextOutput, pronunciationScore, grammarFeedback } = await chatWithAI(userTranscript, userProfile.phonemeProgress, baseTokens + 20);
+
+      const trimResponse = (text: string, limit: number): string => {
+        const words = text.split(/\s+/);
+        if (words.length <= limit) return text;
+        let cut = limit;
+        while (cut < words.length && cut < limit + 20) {
+          if (/[.!?]$/.test(words[cut - 1])) break;
+          cut++;
+        }
+        return words.slice(0, cut).join(' ');
+      };
+
+      const finalAiText = trimResponse(aiTextOutput, baseTokens);
       
-      setMessages(prev => prev.map(msg => 
-        msg.id === newUserMessage.id ? { 
-          ...msg, 
+      setMessages(prev => prev.map(msg =>
+        msg.id === newUserMessage.id ? {
+          ...msg,
           userPronunciationScore: pronunciationScore,
-          userGrammarScore: isGrammarCheckEnabled ? grammarScore : undefined,
           grammarFeedback: isGrammarCheckEnabled ? grammarFeedback : undefined,
         } : msg
       ));
       setCurrentPronunciationScore(pronunciationScore);
-      if (isGrammarCheckEnabled) {
-        setCurrentGrammarScore(grammarScore);
-      }
+      // currentGrammarScore will be set after grammar suggestion returns
 
       const aiMessage: ChatMessage = {
         id: `ai-${Date.now()}`,
         sender: ChatMessageSender.AI,
-        text: aiTextOutput,
+        text: finalAiText,
         timestamp: Date.now(),
       };
       setMessages(prev => [...prev, aiMessage]);
       
       if (!isAiSpeakingGlobal) {
-        playAiFeedbackAudio(aiTextOutput);
+        playAiFeedbackAudio(finalAiText);
       }
 
     } catch (err) {
@@ -103,7 +132,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
     } finally {
       setIsLoadingAiResponse(false);
     }
-  }, [userProfile.phonemeProgress, playAiFeedbackAudio, onError, isAiSpeakingGlobal, isGrammarCheckEnabled]);
+  }, [userProfile.phonemeProgress, playAiFeedbackAudio, onError, isAiSpeakingGlobal, isGrammarCheckEnabled, answerLength]);
 
   const toggleButtonBaseStyle = "flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-slate-800/80";
   const activeToggleStyle = "bg-sky-500 text-white hover:bg-sky-400 focus:ring-sky-400 shadow-md";
@@ -134,6 +163,19 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
           </button>
         </div>
       </header>
+
+      <div className="px-3 py-2">
+        <label htmlFor="answer-length" className="block text-xs text-sky-300 mb-1">Tutor answer length</label>
+        <input
+          id="answer-length"
+          type="range"
+          min="1"
+          max="8"
+          value={answerLength}
+          onChange={e => setAnswerLength(Number(e.target.value))}
+          className="w-full accent-sky-500"
+        />
+      </div>
 
       <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 scroll-smooth">
         {messages.map((msg) => (

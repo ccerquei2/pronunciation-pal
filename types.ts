@@ -157,6 +157,7 @@ export interface ChatMessage {
   audioBlob?: Blob; // Optional: user's recorded audio
   userGrammarScore?: number; // Optional: score for the user's grammar
   grammarFeedback?: string; // Optional: feedback on grammar
+  grammarSuggestion?: string; // Optional: corrected user sentence
 }
 
 export interface MockChatResponse {
