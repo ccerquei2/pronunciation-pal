@@ -19,3 +19,13 @@ export const APP_NAME = "Pronunciation Pal";
 export const AI_TUTOR_NAME = "Alex"; // Your AI Pronunciation Coach. Used in Practice and Chat.
 
 export const DEFAULT_USER_PROFILE_ID = "default_user_001";
+
+// Voices available for OpenAI Text-to-Speech
+export const OPENAI_TTS_VOICES = [
+  'alloy',
+  'echo',
+  'fable',
+  'onyx',
+  'nova',
+  'shimmer',
+] as const;
