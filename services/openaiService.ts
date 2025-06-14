@@ -27,7 +27,7 @@ export async function transcribeAudio(audio: Blob): Promise<string> {
   return data.text as string;
 }
 
-export async function synthesizeSpeech(text: string): Promise<Blob> {
+export async function synthesizeSpeech(text: string, voice: string = 'alloy'): Promise<Blob> {
   const res = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: {
@@ -37,7 +37,7 @@ export async function synthesizeSpeech(text: string): Promise<Blob> {
     body: JSON.stringify({
       model: 'tts-1',
       input: text,
-      voice: 'alloy',
+      voice,
       response_format: 'mp3',
     }),
   });

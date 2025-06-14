@@ -6,6 +6,7 @@ import { PracticePage } from './pages/practice/PracticePage';
 import type { PhonemeAnalysis, PracticePhrase, DailyChallenge, UserProfile, AppView } from './types';
 import { mockAnalyzePronunciation, mockGeneratePersonalizedLesson, mockGetDailyChallenge, mockGetUserProfile } from './services/mockAiTutorService';
 import { synthesizeSpeech } from './services/openaiService';
+import { OPENAI_TTS_VOICES } from './constants';
 import { AppView as AppViewEnum } from './types';
 
 const App: React.FC = () => {
@@ -20,6 +21,14 @@ const App: React.FC = () => {
   const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAiSpeaking, setIsAiSpeaking] = useState<boolean>(false);
+  const [selectedVoice, setSelectedVoice] = useState<string>(() => {
+    const stored = localStorage.getItem('openaiTtsVoice');
+    return stored && OPENAI_TTS_VOICES.includes(stored as any) ? stored : 'alloy';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('openaiTtsVoice', selectedVoice);
+  }, [selectedVoice]);
 
 
   useEffect(() => {
@@ -38,7 +47,7 @@ const App: React.FC = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [selectedVoice]);
 
 
   const handleRecordingComplete = useCallback(async (audioBlob: Blob, transcript: string) => {
@@ -115,7 +124,7 @@ const App: React.FC = () => {
     setIsAiSpeaking(true);
     (async () => {
       try {
-        const audioBlob = await synthesizeSpeech(text);
+        const audioBlob = await synthesizeSpeech(text, selectedVoice);
         const url = URL.createObjectURL(audioBlob);
         const audio = new Audio(url);
         audio.onended = () => {
@@ -137,7 +146,7 @@ const App: React.FC = () => {
         if (onEndCallback) onEndCallback();
       }
     })();
-  }, []);
+  }, [selectedVoice]);
 
 
   const handleChangeView = (view: AppView) => {
@@ -162,6 +171,8 @@ const App: React.FC = () => {
             playAiFeedbackAudio={playAiFeedbackAudio}
             isAiSpeakingGlobal={isAiSpeaking}
             onError={setError}
+            selectedVoice={selectedVoice}
+            onVoiceChange={setSelectedVoice}
           />
         )}
         {currentAppView === AppViewEnum.CHAT && !userProfile && (

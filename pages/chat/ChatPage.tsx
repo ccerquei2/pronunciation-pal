@@ -7,7 +7,7 @@ import { ChatInputArea } from './ChatInputArea';
 import { ChatBubble } from './ChatBubble';
 import { PronunciationScoreIndicator } from './PronunciationScoreIndicator';
 import { GrammarScoreIndicator } from './GrammarScoreIndicator';
-import { AI_TUTOR_NAME } from '../../constants';
+import { AI_TUTOR_NAME, OPENAI_TTS_VOICES } from '../../constants';
 import { SpeakerWaveIcon, DocumentTextIcon as GrammarIcon } from '../../components/icons/EditorIcons'; // Using SpeakerWave for AI pronounce, GrammarIcon for grammar check
 
 interface ChatPageProps {
@@ -15,9 +15,11 @@ interface ChatPageProps {
   playAiFeedbackAudio: (text: string, onEndCallback?: () => void) => void;
   isAiSpeakingGlobal: boolean;
   onError: (message: string | null) => void;
+  selectedVoice: string;
+  onVoiceChange: (voice: string) => void;
 }
 
-export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackAudio, isAiSpeakingGlobal, onError }) => {
+export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackAudio, isAiSpeakingGlobal, onError, selectedVoice, onVoiceChange }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoadingAiResponse, setIsLoadingAiResponse] = useState<boolean>(false);
   const [currentPronunciationScore, setCurrentPronunciationScore] = useState<number | null>(null);
@@ -161,6 +163,15 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
             <GrammarIcon className="w-3.5 h-3.5" />
             <span>Grammar Check</span>
           </button>
+          <select
+            value={selectedVoice}
+            onChange={e => onVoiceChange(e.target.value)}
+            className="ml-2 bg-slate-600/70 text-sky-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-sky-500"
+          >
+            {OPENAI_TTS_VOICES.map(v => (
+              <option key={v} value={v}>{v}</option>
+            ))}
+          </select>
         </div>
       </header>
 
