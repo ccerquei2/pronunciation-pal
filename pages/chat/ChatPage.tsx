@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { UserProfile, ChatMessage } from '../../types';
 import { ChatMessageSender } from '../../types';
-import { chatWithAI } from '../../services/openaiService';
+import { chatWithAI, getGrammarSuggestion } from '../../services/openaiService';
 import { ChatInputArea } from './ChatInputArea';
 import { ChatBubble } from './ChatBubble';
 import { PronunciationScoreIndicator } from './PronunciationScoreIndicator';
@@ -24,6 +24,14 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
   
   const [isAiPronunciationOfUserTextEnabled, setIsAiPronunciationOfUserTextEnabled] = useState<boolean>(false);
   const [isGrammarCheckEnabled, setIsGrammarCheckEnabled] = useState<boolean>(false);
+  const [answerLength, setAnswerLength] = useState<number>(() => {
+    const stored = localStorage.getItem('tutorAnswerLength');
+    return stored ? Number(stored) : 4;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('tutorAnswerLength', answerLength.toString());
+  }, [answerLength]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -48,7 +56,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
 
   const handleSendMessage = useCallback(async (userTranscript: string, audioBlob?: Blob) => {
     if (!userTranscript.trim() && !audioBlob) return;
-    onError(null); 
+    onError(null);
 
     const newUserMessage: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -58,12 +66,18 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
       audioBlob: audioBlob,
     };
     setMessages(prev => [...prev, newUserMessage]);
+
+    getGrammarSuggestion(userTranscript).then(suggestion => {
+      setMessages(prev => prev.map(m => m.id === newUserMessage.id ? { ...m, grammarSuggestion: suggestion } : m));
+    }).catch(err => console.error('[ChatPage] Grammar suggestion error:', err));
     setIsLoadingAiResponse(true);
-    setCurrentPronunciationScore(null); 
+    setCurrentPronunciationScore(null);
     setCurrentGrammarScore(null);
 
     try {
-      const { aiTextOutput, pronunciationScore, grammarScore, grammarFeedback } = await chatWithAI(userTranscript, userProfile.phonemeProgress);
+      const tokenMap = [16, 32, 64, 128, 256, 512, 1024, 2048];
+      const maxTokens = tokenMap[Math.min(tokenMap.length, Math.max(1, answerLength)) - 1];
+      const { aiTextOutput, pronunciationScore, grammarScore, grammarFeedback } = await chatWithAI(userTranscript, userProfile.phonemeProgress, maxTokens);
       
       setMessages(prev => prev.map(msg => 
         msg.id === newUserMessage.id ? { 
@@ -103,7 +117,7 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
     } finally {
       setIsLoadingAiResponse(false);
     }
-  }, [userProfile.phonemeProgress, playAiFeedbackAudio, onError, isAiSpeakingGlobal, isGrammarCheckEnabled]);
+  }, [userProfile.phonemeProgress, playAiFeedbackAudio, onError, isAiSpeakingGlobal, isGrammarCheckEnabled, answerLength]);
 
   const toggleButtonBaseStyle = "flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-slate-800/80";
   const activeToggleStyle = "bg-sky-500 text-white hover:bg-sky-400 focus:ring-sky-400 shadow-md";
@@ -134,6 +148,19 @@ export const ChatPage: React.FC<ChatPageProps> = ({ userProfile, playAiFeedbackA
           </button>
         </div>
       </header>
+
+      <div className="px-3 py-2">
+        <label htmlFor="answer-length" className="block text-xs text-sky-300 mb-1">Tutor answer length</label>
+        <input
+          id="answer-length"
+          type="range"
+          min="1"
+          max="8"
+          value={answerLength}
+          onChange={e => setAnswerLength(Number(e.target.value))}
+          className="w-full accent-sky-500"
+        />
+      </div>
 
       <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 scroll-smooth">
         {messages.map((msg) => (

@@ -47,6 +47,9 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
         </div>
         <div className={`px-3 py-2 rounded-xl shadow-md ${isUser ? 'bg-sky-600 text-white rounded-br-none' : 'bg-slate-700 text-slate-200 rounded-bl-none'}`}>
           <p className="text-sm whitespace-pre-wrap break-words">{message.text || (isUser && message.audioBlob ? "Processing your audio..." : "...")}</p>
+          {isUser && message.grammarSuggestion && (
+            <p className="text-xs italic text-slate-300 mt-1">{message.grammarSuggestion}</p>
+          )}
           
           {isUser && message.audioBlob && (
             <div className="mt-2 -mx-1"> {/* Negative margin to make player slightly wider if needed */}
